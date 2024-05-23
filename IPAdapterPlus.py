@@ -218,7 +218,9 @@ def ipadapter_execute(model,
                       unfold_batch=False,
                       embeds_scaling='V only',
                       layer_weights=None,
-                      encode_batch_size=0,):
+                      encode_batch_size=0,
+                      face_embed=None,
+                      face_image=None):
     device = model_management.get_torch_device()
     dtype = model_management.unet_dtype()
     if dtype not in [torch.float32, torch.float16, torch.bfloat16]:
@@ -233,7 +235,7 @@ def ipadapter_execute(model,
     output_cross_attention_dim = ipadapter["ip_adapter"]["1.to_k_ip.weight"].shape[1]
     is_sdxl = output_cross_attention_dim == 2048
 
-    if is_faceid and not insightface:
+    if is_faceid and not insightface and face_embed is None:
         raise Exception("insightface model is required for FaceID models")
 
     if is_faceidv2:
@@ -274,7 +276,10 @@ def ipadapter_execute(model,
 
     img_comp_cond_embeds = None
     face_cond_embeds = None
-    if is_faceid:
+    if face_embed is not None:
+        face_cond_embeds = face_embed
+        image = face_image
+    elif is_faceid:
         if insightface is None:
             raise Exception("Insightface model is required for FaceID models")
 
@@ -845,6 +850,71 @@ class IPAdapterFaceID(IPAdapterAdvanced):
                 "model": ("MODEL", ),
                 "ipadapter": ("IPADAPTER", ),
                 "image": ("IMAGE",),
+                "weight": ("FLOAT", { "default": 1.0, "min": -1, "max": 3, "step": 0.05 }),
+                "weight_faceidv2": ("FLOAT", { "default": 1.0, "min": -1, "max": 5.0, "step": 0.05 }),
+                "weight_type": (WEIGHT_TYPES, ),
+                "combine_embeds": (["concat", "add", "subtract", "average", "norm average"],),
+                "start_at": ("FLOAT", { "default": 0.0, "min": 0.0, "max": 1.0, "step": 0.001 }),
+                "end_at": ("FLOAT", { "default": 1.0, "min": 0.0, "max": 1.0, "step": 0.001 }),
+                "embeds_scaling": (['V only', 'K+V', 'K+V w/ C penalty', 'K+mean(V) w/ C penalty'], ),
+
+            },
+            "optional": {
+                "image_negative": ("IMAGE",),
+                "attn_mask": ("MASK",),
+                "clip_vision": ("CLIP_VISION",),
+                "insightface": ("INSIGHTFACE",),
+            }
+        }
+
+    CATEGORY = "ipadapter/faceid"
+    RETURN_TYPES = ("MODEL","IMAGE",)
+    RETURN_NAMES = ("MODEL", "face_image", )
+import requests
+class IPAdapterLoadFaceEmbeds:
+    @classmethod
+    def INPUT_TYPES(s):
+        input_dir = folder_paths.get_input_directory()
+        files = [os.path.relpath(os.path.join(root, file), input_dir) for root, dirs, files in os.walk(input_dir) for file in files if file.endswith('.pt')]
+        return {"required": {
+            "embeds": [sorted(files), ]}, 
+            "url": ("STRING", {"default": ""}),
+        }
+
+    RETURN_TYPES = ("FACE_EMBED", "FACE_IMAGE")
+    FUNCTION = "load"
+    CATEGORY = "ipadapter"
+    
+    def check_file(path:str) -> bool:
+        if os.path.exists(path):
+            return True
+        else:
+            return False
+    def load(self, embeds, url):
+        path = folder_paths.get_annotated_filepath(embeds)
+        if not self.check_file(path):
+            response = requests.get(url)
+            if response.status_code == 200:
+                with open(path, 'wb') as file:
+                    file.write(response.content)
+                print(f"Downloaded")
+            else:
+                print(f"Failed to download")
+        output = torch.load(path)
+        face_embed = output["face_embed"].cpu()
+        face_image = output["image"].cpu()
+
+        return (face_embed, face_image)
+
+class IPAdapterFaceIDEmbeds(IPAdapterAdvanced):
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "model": ("MODEL", ),
+                "ipadapter": ("IPADAPTER", ),
+                "face_embed": ("FACE_EMBED",),
+                "face_image": ("FACE_IMAGE",),
                 "weight": ("FLOAT", { "default": 1.0, "min": -1, "max": 3, "step": 0.05 }),
                 "weight_faceidv2": ("FLOAT", { "default": 1.0, "min": -1, "max": 5.0, "step": 0.05 }),
                 "weight_type": (WEIGHT_TYPES, ),
@@ -1718,6 +1788,8 @@ NODE_CLASS_MAPPINGS = {
     "IPAdapterStyleCompositionBatch": IPAdapterStyleCompositionBatch,
     "IPAdapterMS": IPAdapterMS,
     "IPAdapterFromParams": IPAdapterFromParams,
+    "IPAdapterLoadFaceEmbeds": IPAdapterLoadFaceEmbeds,
+    "IPAdapterFaceIDEmbeds": IPAdapterFaceIDEmbeds,
 
     # Loaders
     "IPAdapterUnifiedLoader": IPAdapterUnifiedLoader,
@@ -1755,6 +1827,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "IPAdapterStyleCompositionBatch": "IPAdapter Style & Composition Batch SDXL",
     "IPAdapterMS": "IPAdapter Mad Scientist",
     "IPAdapterFromParams": "IPAdapter from Params",
+    "IPAdapterLoadFaceEmbeds": "Load Face Embeds",
+    "IPAdapterFaceIDEmbeds": "Apply IPAdapter FaceID from Encoded",
+    
 
     # Loaders
     "IPAdapterUnifiedLoader": "IPAdapter Unified Loader",
