@@ -278,7 +278,7 @@ def ipadapter_execute(model,
     face_cond_embeds = None
     if face_embed is not None:
         face_cond_embeds = face_embed.to(device, dtype=dtype)
-        image = face_image
+        # image = face_image
     elif is_faceid:
         if insightface is None:
             raise Exception("Insightface model is required for FaceID models")
@@ -922,7 +922,7 @@ class IPAdapterFaceIDEmbeds(IPAdapterAdvanced):
                 "model": ("MODEL", ),
                 "ipadapter": ("IPADAPTER", ),
                 "face_embed": ("FACE_EMBED",),
-                "face_image": ("FACE_IMAGE",),
+                "image": ("IMAGE",),
                 "weight": ("FLOAT", { "default": 1.0, "min": -1, "max": 3, "step": 0.05 }),
                 "weight_faceidv2": ("FLOAT", { "default": 1.0, "min": -1, "max": 5.0, "step": 0.05 }),
                 "weight_type": (WEIGHT_TYPES, ),
