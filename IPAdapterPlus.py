@@ -888,7 +888,7 @@ class IPAdapterLoadFaceEmbeds:
     FUNCTION = "load"
     CATEGORY = "ipadapter"
     
-    def check_file(path:str) -> bool:
+    def check_file(self, path:str) -> bool:
         if os.path.exists(path):
             return True
         else:
