@@ -889,7 +889,7 @@ class IPAdapterLoadFaceEmbeds:
             }
         }
 
-    RETURN_TYPES = ("FACE_EMBED", "FACE_IMAGE")
+    RETURN_TYPES = ("FACE_EMBED", "IMAGE")
     FUNCTION = "load"
     CATEGORY = "ipadapter"
     
