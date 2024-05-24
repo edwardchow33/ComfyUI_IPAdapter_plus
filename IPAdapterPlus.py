@@ -877,8 +877,11 @@ class IPAdapterLoadFaceEmbeds:
         input_dir = folder_paths.get_input_directory()
         files = [os.path.relpath(os.path.join(root, file), input_dir) for root, dirs, files in os.walk(input_dir) for file in files if file.endswith('.pt')]
         return {"required": {
-            "embeds": [sorted(files), ]}, 
-            "url": ("STRING", {"default": ""}),
+                "embeds": [sorted(files), ]
+            }, 
+            "optional": {
+                "url": ("STRING", {"default": ""})
+            }
         }
 
     RETURN_TYPES = ("FACE_EMBED", "FACE_IMAGE")
