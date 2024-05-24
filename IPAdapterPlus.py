@@ -277,7 +277,7 @@ def ipadapter_execute(model,
     img_comp_cond_embeds = None
     face_cond_embeds = None
     if face_embed is not None:
-        face_cond_embeds = face_embed
+        face_cond_embeds = face_embed.to(device, dtype=dtype)
         image = face_image
     elif is_faceid:
         if insightface is None:
